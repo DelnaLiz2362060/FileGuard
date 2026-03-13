@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>FileGuard – Dashboard</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0f172a;--surface:#1e293b;--border:#334155;
+  --text:#e2e8f0;--muted:#64748b;--accent:#6366f1;
+  --ok:#22c55e;--warn:#f59e0b;--danger:#ef4444;--ml:#a78bfa;--info:#38bdf8;
+}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh;display:flex;flex-direction:column}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;height:56px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:100}
+.topbar .logo{font-weight:700;font-size:18px;color:#f1f5f9}
+.topbar .spacer{flex:1}
+.user-info{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:12px}
+.user-info strong{color:#f1f5f9}
+.topbar button{background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;transition:.2s}
+.topbar button:hover{border-color:var(--danger);color:var(--danger)}
+.pulse{width:8px;height:8px;border-radius:50%;background:var(--ok);animation:pulse 2s infinite;flex-shrink:0}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:16px 20px;border-bottom:1px solid var(--border)}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px}
+.stat-val{font-size:28px;font-weight:700;color:#f1f5f9}
+.stat-lbl{font-size:11px;color:var(--muted);margin-top:2px}
+.main{display:grid;grid-template-columns:1fr 380px;flex:1;min-height:0}
+.left{display:flex;flex-direction:column;overflow:hidden}
+.right{background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column;min-height:0}
+.add-bar{display:flex;gap:10px;padding:16px 20px;border-bottom:1px solid var(--border)}
+.add-bar input{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-size:14px;outline:none;transition:border .2s}
+.add-bar input:focus{border-color:var(--accent)}
+.add-bar .watch-btn{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:10px 18px;cursor:pointer;font-size:14px;font-weight:600;white-space:nowrap}
+.add-bar .watch-btn:hover{background:#4f46e5}
+.type-toggle{display:flex;background:var(--bg);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.type-toggle button{border:none;background:transparent;color:var(--muted);padding:10px 14px;cursor:pointer;font-size:13px;transition:.2s}
+.type-toggle button.on{background:var(--accent);color:#fff}
+.tabs{display:flex;border-bottom:1px solid var(--border);background:var(--surface);padding:0 20px;gap:4px}
+.tab{padding:12px 16px;font-size:13px;font-weight:500;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:.2s;white-space:nowrap}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.tab:hover:not(.active){color:var(--text)}
+.pane{display:none;flex:1;overflow:auto;padding:20px}
+.pane.active{display:block}
+.file-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+.file-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;position:relative;transition:.2s}
+.file-card:hover{border-color:var(--accent)}
+.file-card.MODIFIED{border-left:3px solid var(--warn)}
+.file-card.DELETED{border-left:3px solid var(--danger);opacity:.7}
+.fc-top{display:flex;align-items:flex-start;gap:10px;margin-bottom:10px}
+.fc-icon{font-size:24px;flex-shrink:0}
+.fc-name{font-weight:600;font-size:14px;color:#f1f5f9;word-break:break-all}
+.fc-path{font-size:11px;color:var(--muted);word-break:break-all;margin-top:2px}
+.fc-meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.badge{padding:3px 8px;border-radius:20px;font-size:11px;font-weight:600}
+.b-ok{background:#052e16;color:#4ade80}
+.b-warn{background:#451a03;color:#fb923c}
+.b-danger{background:#450a0a;color:#f87171}
+.b-info{background:#0c2540;color:#7dd3fc}
+.b-dir{background:#1e3a5f;color:#60a5fa}
+.b-dim{background:#1e293b;color:#94a3b8}
+.fc-actions{position:absolute;top:12px;right:12px}
+.rm-btn{background:transparent;border:1px solid #334155;color:var(--muted);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:11px;transition:.2s}
+.rm-btn:hover{border-color:var(--danger);color:var(--danger)}
+.empty-state{grid-column:1/-1;text-align:center;padding:60px 20px;color:var(--muted)}
+.empty-state .big{font-size:48px;margin-bottom:12px}
+.log-header{padding:14px 16px;font-size:13px;font-weight:600;color:#f1f5f9;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
+.log-body{flex:1;overflow-y:auto;padding:12px}
+.log-entry{display:flex;gap:8px;padding:6px 8px;border-radius:6px;margin-bottom:2px;font-size:12px;line-height:1.5}
+.log-entry:hover{background:#ffffff08}
+.log-time{color:var(--muted);white-space:nowrap;font-family:monospace;flex-shrink:0}
+.log-level{font-weight:700;white-space:nowrap;min-width:60px;flex-shrink:0}
+.log-msg{color:#cbd5e1;word-break:break-all}
+.lv-INFO{color:var(--info)}.lv-SUCCESS{color:var(--ok)}.lv-WARN{color:var(--warn)}.lv-CRITICAL{color:var(--danger)}.lv-ML{color:var(--ml)}
+#toasts{position:fixed;bottom:20px;right:20px;z-index:9999;display:flex;flex-direction:column-reverse;gap:10px;width:360px}
+.toast{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;box-shadow:0 8px 32px #00000060;animation:slideIn .3s ease;display:flex;gap:12px;align-items:flex-start}
+.toast.critical{border-left:3px solid var(--danger)}
+.toast.warn{border-left:3px solid var(--warn)}
+.toast.info{border-left:3px solid var(--info)}
+.toast-icon{font-size:18px;flex-shrink:0}
+.toast-body .title{font-size:13px;font-weight:700;color:#f1f5f9}
+.toast-body .msg{font-size:12px;color:var(--muted);word-break:break-word}
+@keyframes slideIn{from{transform:translateX(120%);opacity:0}to{transform:translateX(0);opacity:1}}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{text-align:left;color:var(--muted);font-weight:600;padding:8px 10px;border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:8px 10px;border-bottom:1px solid #1e293b;vertical-align:top;word-break:break-all}
+tr:hover td{background:#ffffff05}
+.score-bar-wrap{width:80px;background:#0f172a;border-radius:4px;height:6px;margin-top:4px}
+.score-bar{height:6px;border-radius:4px}
+.settings-block{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px}
+.settings-block h3{font-size:14px;font-weight:600;margin-bottom:14px;color:#f1f5f9}
+.toggle-row{display:flex;align-items:center;gap:12px;font-size:13px;color:var(--muted)}
+.switch{width:44px;height:24px;background:#334155;border-radius:12px;cursor:pointer;transition:background .2s;position:relative;flex-shrink:0;border:none}
+.switch.on{background:var(--accent)}
+.switch::after{content:'';width:18px;height:18px;background:#fff;border-radius:50%;position:absolute;top:3px;left:3px;transition:left .2s}
+.switch.on::after{left:23px}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#334155;border-radius:3px}
+</style>
+</head>
+<body>
+
+<!-- Identity baked in by server at render time — always correct for THIS session -->
+<script>
+  const SESSION_USER_ID    = {{ user_id }};
+  const SESSION_USER_EMAIL = {{ user_email | tojson }};
+  const SESSION_USER_NAME  = {{ user_name  | tojson }};
+</script>
+
+<div class="topbar">
+  <div class="logo">🔒 FileGuard</div>
+  <div class="pulse" id="liveDot"></div>
+  <div class="spacer"></div>
+  <div class="user-info">
+    Signed in as <strong id="userEmail"></strong>
+    <button onclick="toggleAlerts()" id="alertBtn">🔔 Alerts</button>
+    <button onclick="doLogout()">Sign out</button>
+  </div>
+</div>
+
+<div class="stats-row">
+  <div class="stat-card"><div class="stat-val" id="statTotal">0</div><div class="stat-lbl">Monitored paths</div></div>
+  <div class="stat-card"><div class="stat-val" id="statIntact" style="color:var(--ok)">0</div><div class="stat-lbl">Intact</div></div>
+  <div class="stat-card"><div class="stat-val" id="statModified" style="color:var(--warn)">0</div><div class="stat-lbl">Modified</div></div>
+  <div class="stat-card"><div class="stat-val" id="statAnomalies" style="color:var(--danger)">0</div><div class="stat-lbl">Anomalies (session)</div></div>
+</div>
+
+<div class="main">
+  <div class="left">
+    <div class="add-bar">
+      <div class="type-toggle">
+        <button class="on" id="typeFile"   onclick="setType('file')">📄 File</button>
+        <button           id="typeFolder" onclick="setType('folder')">📁 Folder</button>
+      </div>
+      <input id="pathInput" placeholder="Enter absolute file or folder path…"
+             onkeydown="if(event.key==='Enter')addPath()"/>
+      <button class="watch-btn" onclick="addPath()">+ Watch</button>
+    </div>
+
+    <div class="tabs">
+      <div class="tab active" onclick="showTab('files')">Files &amp; Folders</div>
+      <div class="tab"        onclick="showTab('access')">Access Logs</div>
+      <div class="tab"        onclick="showTab('db')">DB Records</div>
+      <div class="tab"        onclick="showTab('settings')">Settings</div>
+    </div>
+
+    <div class="pane active" id="pane-files">
+      <div class="file-grid" id="fileGrid"></div>
+    </div>
+
+    <div class="pane" id="pane-access">
+      <table><thead><tr>
+        <th>Time</th><th>File</th><th>Event</th><th>ML Score</th><th>Label</th><th>Burst</th><th>After Hours</th>
+      </tr></thead>
+      <tbody id="accessBody">
+        <tr><td colspan="7" style="color:var(--muted);text-align:center;padding:40px">No access events yet.</td></tr>
+      </tbody></table>
+    </div>
+
+    <div class="pane" id="pane-db">
+      <table><thead><tr>
+        <th>Path</th><th>Type</th><th>Hash</th><th>Size</th><th>Status</th><th>Added</th><th>Last Modified</th>
+      </tr></thead>
+      <tbody id="dbBody">
+        <tr><td colspan="7" style="color:var(--muted);text-align:center;padding:40px">No DB records yet.</td></tr>
+      </tbody></table>
+    </div>
+
+    <div class="pane" id="pane-settings">
+      <div class="settings-block">
+        <h3>Email Alerts</h3>
+        <div class="toggle-row" style="margin-bottom:16px">
+          <button class="switch" id="alertSwitch" onclick="toggleAlerts()"></button>
+          <span id="alertStatus">Receive email alerts when anomalies are detected</span>
+        </div>
+
+        <!-- SMTP status panel -->
+        <div id="smtpStatus" style="background:#0f172a;border-radius:8px;padding:12px 14px;margin-bottom:14px;font-size:12px;line-height:1.8">
+          <div style="color:var(--muted)">Loading SMTP config…</div>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <button onclick="sendTestEmail()" id="testEmailBtn"
+            style="background:#1e3a5f;border:1px solid #1d4ed8;color:#93c5fd;border-radius:8px;
+                   padding:9px 16px;cursor:pointer;font-size:13px">
+            📧 Send Test Email
+          </button>
+          <button onclick="loadSmtpStatus()"
+            style="background:transparent;border:1px solid var(--border);color:var(--muted);
+                   border-radius:8px;padding:9px 12px;cursor:pointer;font-size:12px">
+            ↻ Refresh
+          </button>
+        </div>
+        <div id="testEmailResult" style="margin-top:10px;font-size:12px;color:var(--muted);
+             white-space:pre-wrap;background:#0f172a;border-radius:6px;padding:0;max-height:0;
+             overflow:hidden;transition:max-height .3s,padding .3s"></div>
+      </div>
+      <div class="settings-block">
+        <h3>Danger Zone</h3>
+        <button onclick="resetAll()"
+          style="background:#450a0a;border:1px solid #991b1b;color:#fca5a5;border-radius:8px;padding:10px 18px;cursor:pointer;font-size:13px">
+          🗑️ Clear all my watched paths &amp; logs
+        </button>
+      </div>
+     
+    </div>
+  </div>
+
+  <div class="right">
+    <div class="log-header">
+      📋 Live Event Log
+      <span style="margin-left:auto;font-size:11px;color:var(--muted)" id="logCount">0 events</span>
+    </div>
+    <div class="log-body" id="logBody"></div>
+  </div>
+</div>
+
+<div id="toasts"></div>
+
+<script>
+// ── Identity — injected by server, never fetched from JS ───────────────────
+let alertEnabled = false;
+let anomCount    = 0;
+let files        = [];
+let evtSrc       = null;
+
+// Show email immediately — no async needed
+document.getElementById('userEmail').textContent = SESSION_USER_EMAIL;
+
+// Fetch alert preference for this user
+(async () => {
+  const r = await fetch('/api/auth/me', { cache: 'no-store' });
+  if (!r.ok) { window.location.href = '/login'; return; }
+  const u = await r.json();
+
+  // Guard: if server says a different user than what's in the page, force reload
+  if (u.email !== SESSION_USER_EMAIL) {
+    window.location.href = '/';
+    return;
+  }
+
+  alertEnabled = u.alert_enabled;
+  updateAlertUI();
+  openSSE();
+})();
+
+// ── SSE ────────────────────────────────────────────────────────────────────
+function openSSE() {
+  if (evtSrc) { evtSrc.close(); evtSrc = null; }
+
+  evtSrc = new EventSource('/api/events');
+
+  evtSrc.onopen = () => {
+    document.getElementById('liveDot').style.background = 'var(--ok)';
+  };
+
+  evtSrc.onmessage = e => {
+    const d = JSON.parse(e.data);
+    if (d.type === 'init') {
+      // Wipe log and render fresh data for THIS user
+      document.getElementById('logBody').innerHTML = '';
+      document.getElementById('logCount').textContent = '0 events';
+      files = d.files || [];
+      renderFiles();
+      (d.log || []).forEach(addLog);
+    } else if (d.type === 'files') {
+      files = d.files || [];
+      renderFiles();
+    } else if (d.type === 'log') {
+      addLog(d.entry);
+    } else if (d.type === 'alert') {
+      const icon = d.level === 'critical' ? '🚨' : d.level === 'warn' ? '⚠️' : 'ℹ️';
+      showToast(d.level, icon + ' ' + (d.fname || ''), d.message, d.level);
+      if (d.label === 'ANOMALY' || d.label === 'SUSPICIOUS') {
+        anomCount++;
+        document.getElementById('statAnomalies').textContent = anomCount;
+      }
+    }
+  };
+
+  evtSrc.onerror = () => {
+    document.getElementById('liveDot').style.background = 'var(--danger)';
+    fetch('/api/auth/me', { cache: 'no-store' }).then(r => {
+      if (!r.ok) window.location.href = '/login';
+    });
+  };
+}
+
+// ── UI helpers ─────────────────────────────────────────────────────────────
+function setType(t) {
+  document.getElementById('typeFile').classList.toggle('on', t === 'file');
+  document.getElementById('typeFolder').classList.toggle('on', t === 'folder');
+}
+
+function showTab(name) {
+  const names = ['files','access','db','settings'];
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', names[i] === name));
+  document.querySelectorAll('.pane').forEach(p => p.classList.remove('active'));
+  document.getElementById('pane-' + name).classList.add('active');
+  if (name === 'access') loadAccessLogs();
+  if (name === 'db')     loadDBRecords();
+  if (name === 'settings') loadSmtpStatus();
+}
+
+// ── API calls ──────────────────────────────────────────────────────────────
+async function addPath() {
+  const path = document.getElementById('pathInput').value.trim();
+  if (!path) return;
+  const r = await fetch('/api/add-file', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path })
+  });
+  const d = await r.json();
+  if (!d.ok) showToast('critical', '❌ Error', d.error, 'critical');
+  else document.getElementById('pathInput').value = '';
+}
+
+async function removePath(path) {
+  await fetch('/api/remove-file', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path })
+  });
+}
+
+async function resetAll() {
+  if (!confirm('Clear ALL your watched paths and logs?')) return;
+  await fetch('/api/reset', { method: 'POST' });
+  anomCount = 0;
+  document.getElementById('statAnomalies').textContent = '0';
+  document.getElementById('logBody').innerHTML = '';
+  document.getElementById('logCount').textContent = '0 events';
+}
+
+async function loadAccessLogs() {
+  const r = await fetch('/api/access-logs');
+  const d = await r.json();
+  const tb = document.getElementById('accessBody');
+  if (!d.logs || !d.logs.length) {
+    tb.innerHTML = '<tr><td colspan="7" style="color:var(--muted);text-align:center;padding:40px">No access events yet.</td></tr>';
+    return;
+  }
+  tb.innerHTML = d.logs.map(l => {
+    const col = l.label==='ANOMALY'?'var(--danger)':l.label==='SUSPICIOUS'?'var(--warn)':'var(--ok)';
+    const pct = l.score != null ? Math.round(l.score * 100) : 0;
+    return `<tr>
+      <td style="font-family:monospace;white-space:nowrap">${esc(l.time)}</td>
+      <td><b>${esc(l.fname)}</b><br><small style="color:var(--muted)">${esc(l.path)}</small></td>
+      <td>${esc(l.event)}</td>
+      <td>${l.score!=null?l.score:'—'}
+        ${l.score!=null?`<div class="score-bar-wrap"><div class="score-bar" style="width:${pct}%;background:${col}"></div></div>`:''}
+      </td>
+      <td style="color:${col};font-weight:600">${esc(l.label||'—')}</td>
+      <td>${l.burst}</td>
+      <td>${l.after_hours?'<span style="color:var(--warn)">⚠ Yes</span>':'No'}</td>
+    </tr>`;
+  }).join('');
+}
+
+async function loadDBRecords() {
+  const r = await fetch('/api/db-files');
+  const d = await r.json();
+  const tb = document.getElementById('dbBody');
+  if (!d.files || !d.files.length) {
+    tb.innerHTML = '<tr><td colspan="7" style="color:var(--muted);text-align:center;padding:40px">No DB records yet.</td></tr>';
+    return;
+  }
+  tb.innerHTML = d.files.map(f => {
+    const col = f.status==='INTACT'?'var(--ok)':f.status==='MODIFIED'?'var(--warn)':'var(--danger)';
+    return `<tr>
+      <td><b>${esc(f.fname)}</b><br><small style="color:var(--muted)">${esc(f.path)}</small></td>
+      <td>${f.is_dir?'📁 Folder':'📄 File'}</td>
+      <td style="font-family:monospace;font-size:11px">${esc(f.hash)}</td>
+      <td>${esc(f.size)}</td>
+      <td style="color:${col};font-weight:600">${esc(f.status)}</td>
+      <td style="white-space:nowrap">${esc(f.added_at)}</td>
+      <td style="white-space:nowrap">${esc(f.last_modified)}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Render ─────────────────────────────────────────────────────────────────
+function renderFiles() {
+  const grid = document.getElementById('fileGrid');
+  let intact = 0, modified = 0;
+  if (!files.length) {
+    grid.innerHTML = '<div class="empty-state"><div class="big">🗂️</div><div>No paths monitored yet.</div><div style="margin-top:6px;font-size:12px">Add a file or folder path above to start.</div></div>';
+    updateStats(0, 0, 0); return;
+  }
+  grid.innerHTML = files.map(f => {
+    const icon = f.is_dir ? '📁' : '📄';
+    let sb = '';
+    if (f.status==='INTACT')   { sb='<span class="badge b-ok">✔ INTACT</span>';   intact++; }
+    if (f.status==='MODIFIED') { sb='<span class="badge b-warn">⚠ MODIFIED</span>'; modified++; }
+    if (f.status==='DELETED')  { sb='<span class="badge b-danger">✖ DELETED</span>'; }
+    const tb = f.is_dir
+      ? `<span class="badge b-dir">📁 Folder${f.child_count!=null?' · '+f.child_count+' files':''}</span>`
+      : '<span class="badge b-info">📄 File</span>';
+    const safePath = f.path.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    return `<div class="file-card ${f.status}">
+      <div class="fc-actions"><button class="rm-btn" onclick="removePath('${safePath}')">✕ Remove</button></div>
+      <div class="fc-top">
+        <div class="fc-icon">${icon}</div>
+        <div><div class="fc-name">${esc(f.fname)}</div><div class="fc-path">${esc(f.path)}</div></div>
+      </div>
+      <div class="fc-meta">
+        ${sb} ${tb}
+        <span class="badge b-dim">${esc(f.size)}</span>
+        ${f.hash&&f.hash!=='N/A'?`<span class="badge b-dim" style="font-family:monospace">${esc(f.hash)}</span>`:''}
+        <span class="badge b-dim">${esc(f.added_at)}</span>
+      </div>
+    </div>`;
+  }).join('');
+  updateStats(files.length, intact, modified);
+}
+
+function updateStats(total, intact, modified) {
+  document.getElementById('statTotal').textContent    = total;
+  document.getElementById('statIntact').textContent   = intact;
+  document.getElementById('statModified').textContent = modified;
+}
+
+function addLog(e) {
+  const body = document.getElementById('logBody');
+  const div  = document.createElement('div');
+  div.className = 'log-entry';
+  div.innerHTML = `<span class="log-time">${esc(e.time)}</span>
+    <span class="log-level lv-${e.level}">${esc(e.level)}</span>
+    <span class="log-msg">${esc(e.message)}</span>`;
+  body.appendChild(div);
+  if (body.children.length > 500) body.firstChild.remove();
+  body.scrollTop = body.scrollHeight;
+  document.getElementById('logCount').textContent = body.children.length + ' events';
+}
+
+// ── Alerts ─────────────────────────────────────────────────────────────────
+async function toggleAlerts() {
+  const r = await fetch('/api/auth/toggle-alerts', { method: 'POST' });
+  const d = await r.json();
+  alertEnabled = d.alert_enabled;
+  updateAlertUI();
+}
+
+function updateAlertUI() {
+  document.getElementById('alertSwitch').classList.toggle('on', alertEnabled);
+  document.getElementById('alertBtn').textContent = alertEnabled ? '🔔 Alerts ON' : '🔕 Alerts OFF';
+  const st = document.getElementById('alertStatus');
+  if (st) st.textContent = alertEnabled
+    ? 'Email alerts enabled – you will be notified of anomalies.'
+    : 'Email alerts disabled – no notifications will be sent.';
+}
+
+// ── Logout ─────────────────────────────────────────────────────────────────
+async function doLogout() {
+  if (evtSrc) { evtSrc.close(); evtSrc = null; }
+  await fetch('/api/auth/logout', { method: 'POST' });
+  // Hard navigate — clears all JS state
+  window.location.href = '/login';
+}
+
+// ── Toast ──────────────────────────────────────────────────────────────────
+function showToast(level, title, msg, cls) {
+  const c   = document.getElementById('toasts');
+  const div = document.createElement('div');
+  div.className = `toast ${cls || 'info'}`;
+  div.innerHTML = `<div class="toast-icon">${cls==='critical'?'🚨':cls==='warn'?'⚠️':'ℹ️'}</div>
+    <div class="toast-body"><div class="title">${esc(title)}</div><div class="msg">${esc(msg)}</div></div>`;
+  c.appendChild(div);
+  setTimeout(() => div.remove(), 8000);
+}
+
+function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+
+async function loadSmtpStatus() {
+  const panel = document.getElementById('smtpStatus');
+  try {
+    const r = await fetch('/api/smtp-status');
+    const d = await r.json();
+    const ok = d.ready && d.alert_enabled;
+    const statusColor = ok ? 'var(--ok)' : 'var(--warn)';
+    panel.innerHTML = `
+      <div style="display:grid;grid-template-columns:auto 1fr;gap:3px 12px">
+        <span style="color:var(--muted)">SMTP host</span>
+        <span style="color:var(--text)">${esc(d.smtp_host)}:${esc(d.smtp_port)}</span>
+        <span style="color:var(--muted)">SMTP user</span>
+        <span style="color:${d.smtp_user_set?'var(--ok)':'var(--danger)'}">${esc(d.smtp_user)}</span>
+        <span style="color:var(--muted)">Password</span>
+        <span style="color:${d.smtp_pass_set?'var(--ok)':'var(--danger)'}">${d.smtp_pass_set?'✓ Set':'✗ Not set'}</span>
+        <span style="color:var(--muted)">Recipient</span>
+        <span style="color:var(--text)">${esc(d.recipient)}</span>
+        <span style="color:var(--muted)">Alerts toggle</span>
+        <span style="color:${d.alert_enabled?'var(--ok)':'var(--warn)'}">${d.alert_enabled?'✓ Enabled':'✗ Disabled'}</span>
+        <span style="color:var(--muted)">Status</span>
+        <span style="color:${statusColor};font-weight:600">${ok?'✓ Ready to send':'✗ Not configured'}</span>
+      </div>
+      ${!d.smtp_user_set||!d.smtp_pass_set?'<div style="margin-top:10px;color:var(--warn);font-size:11px">⚠ Start the server with:<br><code style="background:#1e293b;padding:2px 6px;border-radius:4px">export SMTP_USER=you@gmail.com<br>export SMTP_PASSWORD=your_app_password<br>python app.py</code></div>':''}`;
+  } catch(e) {
+    panel.innerHTML = '<div style="color:var(--muted)">Could not load SMTP status.</div>';
+  }
+}
+
+async function sendTestEmail() {
+  const btn = document.getElementById('testEmailBtn');
+  const res = document.getElementById('testEmailResult');
+  btn.disabled = true;
+  btn.textContent = '📧 Sending…';
+  res.style.maxHeight = '0'; res.style.padding = '0';
+  try {
+    const r = await fetch('/api/test-email', { method: 'POST' });
+    const d = await r.json();
+    res.style.padding = '10px 12px';
+    res.style.maxHeight = '200px';
+    if (d.ok) {
+      res.textContent = d.message;
+      res.style.color = 'var(--ok)';
+      res.style.border = '1px solid #166534';
+    } else {
+      res.textContent = d.error;
+      res.style.color = 'var(--danger)';
+      res.style.border = '1px solid #991b1b';
+    }
+  } catch(e) {
+    res.style.padding = '10px 12px';
+    res.style.maxHeight = '200px';
+    res.textContent = '✗ Network error';
+    res.style.color = 'var(--danger)';
+  }
+  btn.textContent = '📧 Send Test Email';
+  btn.disabled = false;
+}
+</script>
+</body>
+</html>

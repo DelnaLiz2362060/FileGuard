@@ -1,0 +1,272 @@
+{% extends "base.html" %}
+{% block title %}Model Analytics{% endblock %}
+
+{% block extra_style %}
+.page{max-width:1100px;margin:0 auto;padding:24px}
+.page-title{font-size:22px;font-weight:700;margin-bottom:6px}
+.page-sub{font-size:13px;color:#64748b;margin-bottom:24px}
+
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.full{grid-column:1/-1}
+
+/* Confusion matrix */
+.cm-wrapper{display:flex;justify-content:center;margin:20px 0}
+.cm-grid{display:grid;grid-template-columns:80px 140px 140px;grid-template-rows:80px 140px 140px;gap:0}
+.cm-cell{display:flex;align-items:center;justify-content:center;font-size:14px;border:1px solid #e2e8f0;
+         text-align:center;padding:12px}
+.cm-label{background:#f8fafc;color:#64748b;font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.5px}
+.cm-val{font-size:32px;font-weight:700;cursor:default;transition:background .15s}
+.cm-val:hover{background:#fafbff}
+.cm-tp{background:#f0fdf4;color:#16a34a}
+.cm-fp{background:#fff1f2;color:#be123c}
+.cm-tn{background:#eff6ff;color:#1d4ed8}
+.cm-fn{background:#fff7ed;color:#ea580c}
+.cm-corner{background:#fff;border:none}
+.cm-desc{font-size:11px;color:#94a3b8;margin-top:4px}
+
+/* Metrics */
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.metric-card{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:18px;text-align:center}
+.metric-val{font-size:32px;font-weight:700;margin-bottom:4px}
+.metric-label{font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:#64748b}
+.metric-bar{height:6px;background:#f1f5f9;border-radius:3px;overflow:hidden;margin-top:8px}
+.metric-bar-fill{height:100%;background:#3b82f6;border-radius:3px;transition:width .5s}
+
+/* Alert list with labels */
+.alert-table{width:100%;border-collapse:collapse;font-size:13px}
+.alert-table th{text-align:left;padding:8px 10px;font-size:11px;text-transform:uppercase;
+                letter-spacing:.8px;color:#94a3b8;border-bottom:2px solid #f1f5f9;font-weight:600}
+.alert-table td{padding:10px;border-bottom:1px solid #f8fafc}
+.alert-table tr:hover td{background:#fafbff}
+.label-btns{display:flex;gap:4px}
+.label-btn{padding:4px 10px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;
+           font-size:11px;font-family:inherit;background:#fff;transition:all .15s;font-weight:500}
+.label-btn.active{font-weight:600}
+.label-btn.tp{border-color:#16a34a;color:#16a34a}
+.label-btn.tp.active{background:#f0fdf4}
+.label-btn.fp{border-color:#dc2626;color:#dc2626}
+.label-btn.fp.active{background:#fff1f2}
+.label-btn:hover:not(.active){background:#f8fafc}
+
+#no-alerts{text-align:center;padding:32px;color:#94a3b8;font-style:italic}
+#no-metrics{text-align:center;padding:48px;color:#94a3b8}
+#no-metrics p{font-size:14px;margin-bottom:8px}
+#no-metrics small{font-size:12px}
+{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="page-title">📊 Model Performance Analytics</div>
+  <div class="page-sub">Confusion matrix, accuracy, and decision quality metrics</div>
+
+  <!-- Metrics summary -->
+  <div id="metrics-section" style="display:none">
+    <div class="metrics" style="margin-bottom:20px">
+      <div class="metric-card">
+        <div class="metric-val" id="m-accuracy" style="color:#3b82f6">—</div>
+        <div class="metric-label">Accuracy</div>
+        <div class="metric-bar"><div class="metric-bar-fill" id="bar-accuracy"></div></div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-val" id="m-precision" style="color:#16a34a">—</div>
+        <div class="metric-label">Precision</div>
+        <div class="metric-bar"><div class="metric-bar-fill" id="bar-precision" style="background:#16a34a"></div></div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-val" id="m-recall" style="color:#ea580c">—</div>
+        <div class="metric-label">Recall</div>
+        <div class="metric-bar"><div class="metric-bar-fill" id="bar-recall" style="background:#ea580c"></div></div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-val" id="m-f1" style="color:#8b5cf6">—</div>
+        <div class="metric-label">F1 Score</div>
+        <div class="metric-bar"><div class="metric-bar-fill" id="bar-f1" style="background:#8b5cf6"></div></div>
+      </div>
+    </div>
+
+    <!-- Confusion Matrix -->
+    <div class="card full">
+      <div class="card-title">Confusion Matrix</div>
+      <div class="cm-wrapper">
+        <div class="cm-grid">
+          <!-- Corner -->
+          <div class="cm-cell cm-corner"></div>
+          <div class="cm-cell cm-label">ML: Threat<br><small style="opacity:.7">(Anomaly/Suspicious)</small></div>
+          <div class="cm-cell cm-label">ML: Safe<br><small style="opacity:.7">(Benign)</small></div>
+
+          <!-- Row 1 -->
+          <div class="cm-cell cm-label">Actual:<br>Real Threat</div>
+          <div class="cm-cell cm-val cm-tp" id="cm-tp" title="True Positive: ML correctly identified threat">
+            <div>
+              <div id="val-tp">0</div>
+              <div class="cm-desc">True Positive</div>
+            </div>
+          </div>
+          <div class="cm-cell cm-val cm-fn" id="cm-fn" title="False Negative: ML missed real threat">
+            <div>
+              <div id="val-fn">0</div>
+              <div class="cm-desc">False Negative</div>
+            </div>
+          </div>
+
+          <!-- Row 2 -->
+          <div class="cm-cell cm-label">Actual:<br>False Alarm</div>
+          <div class="cm-cell cm-val cm-fp" id="cm-fp" title="False Positive: ML raised false alarm">
+            <div>
+              <div id="val-fp">0</div>
+              <div class="cm-desc">False Positive</div>
+            </div>
+          </div>
+          <div class="cm-cell cm-val cm-tn" id="cm-tn" title="True Negative: ML correctly ignored safe file">
+            <div>
+              <div id="val-tn">0</div>
+              <div class="cm-desc">True Negative</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p style="font-size:12px;color:#64748b;text-align:center;margin-top:10px">
+        Based on <strong id="labeled-count">0</strong> labeled alerts
+      </p>
+    </div>
+  </div>
+
+  <div id="no-metrics" style="display:none">
+    <p>📊 No performance data yet.</p>
+    <small>Label alerts below as "Real Threat" or "False Alarm" to generate metrics.</small>
+  </div>
+
+  <!-- Alert labeling -->
+  <div class="card full" style="margin-top:20px">
+    <div class="card-title">🏷️ Label Alerts — Help Train the Model</div>
+    <p style="font-size:13px;color:#64748b;margin-bottom:14px">
+      Mark each alert as a <strong>Real Threat</strong> or <strong>False Alarm</strong> to improve model accuracy.
+    </p>
+    <table class="alert-table">
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>File</th>
+          <th>ML Decision</th>
+          <th>Score</th>
+          <th>Message</th>
+          <th>Your Label</th>
+        </tr>
+      </thead>
+      <tbody id="alert-tbody">
+        <tr><td colspan="6" id="no-alerts">No alerts yet.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  let allAlerts = [];
+
+  // Load alerts
+  async function loadAlerts() {
+    const res  = await fetch('/api/alerts');
+    const data = await res.json();
+    allAlerts  = data.alerts;
+    renderAlerts(allAlerts);
+  }
+
+  function renderAlerts(alerts) {
+    const tbody = document.getElementById('alert-tbody');
+    if (!alerts.length) {
+      tbody.innerHTML = '<tr><td colspan="6" id="no-alerts">No alerts yet.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = alerts.map(a => {
+      const labelClass = a.ground_truth === 'TRUE_POSITIVE' ? 'tp' :
+                         a.ground_truth === 'FALSE_POSITIVE' ? 'fp' : '';
+      return `
+        <tr>
+          <td style="font-size:11px;color:#94a3b8">${a.created_at}</td>
+          <td><strong>${a.fname}</strong></td>
+          <td>
+            <span class="badge ${a.level==='CRITICAL'?'badge-red':'badge-orange'}">
+              ${a.ml_label}
+            </span>
+          </td>
+          <td style="font-family:monospace;font-size:12px">${a.ml_score}</td>
+          <td style="font-size:12px;color:#475569">${a.message}</td>
+          <td>
+            <div class="label-btns">
+              <button class="label-btn tp ${a.ground_truth==='TRUE_POSITIVE'?'active':''}"
+                      onclick="labelAlert(${a.id}, 'TRUE_POSITIVE')">
+                ✓ Real Threat
+              </button>
+              <button class="label-btn fp ${a.ground_truth==='FALSE_POSITIVE'?'active':''}"
+                      onclick="labelAlert(${a.id}, 'FALSE_POSITIVE')">
+                ✕ False Alarm
+              </button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  // Label an alert
+  async function labelAlert(alert_id, ground_truth) {
+    await fetch('/api/alert/label', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({alert_id, ground_truth})
+    });
+    
+    // Update local state
+    const a = allAlerts.find(x => x.id === alert_id);
+    if (a) a.ground_truth = ground_truth;
+    
+    renderAlerts(allAlerts);
+    loadMetrics();
+    showToast('success', 'Alert labeled', `Marked as ${ground_truth.replace('_',' ').toLowerCase()}`);
+  }
+
+  // Load metrics
+  async function loadMetrics() {
+    const res  = await fetch('/api/metrics');
+    const data = await res.json();
+    
+    if (!data.metrics) {
+      document.getElementById('metrics-section').style.display = 'none';
+      document.getElementById('no-metrics').style.display = 'block';
+      return;
+    }
+
+    document.getElementById('metrics-section').style.display = 'block';
+    document.getElementById('no-metrics').style.display = 'none';
+
+    const m  = data.metrics;
+    const cm = m.confusion_matrix;
+
+    // Update metrics
+    document.getElementById('m-accuracy').textContent  = (m.accuracy * 100).toFixed(1) + '%';
+    document.getElementById('m-precision').textContent = (m.precision * 100).toFixed(1) + '%';
+    document.getElementById('m-recall').textContent    = (m.recall * 100).toFixed(1) + '%';
+    document.getElementById('m-f1').textContent        = (m.f1_score * 100).toFixed(1) + '%';
+
+    document.getElementById('bar-accuracy').style.width  = (m.accuracy * 100) + '%';
+    document.getElementById('bar-precision').style.width = (m.precision * 100) + '%';
+    document.getElementById('bar-recall').style.width    = (m.recall * 100) + '%';
+    document.getElementById('bar-f1').style.width        = (m.f1_score * 100) + '%';
+
+    // Update confusion matrix
+    document.getElementById('val-tp').textContent = cm.tp;
+    document.getElementById('val-fp').textContent = cm.fp;
+    document.getElementById('val-tn').textContent = cm.tn;
+    document.getElementById('val-fn').textContent = cm.fn;
+    document.getElementById('labeled-count').textContent = m.total_labeled;
+  }
+
+  // Initial load
+  loadAlerts();
+  loadMetrics();
+</script>
+{% endblock %}

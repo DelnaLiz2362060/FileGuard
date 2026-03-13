@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>FileGuard – Register</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{min-height:100vh;background:#0f172a;display:flex;align-items:center;justify-content:center;
+       font-family:'Segoe UI',system-ui,sans-serif;color:#e2e8f0}
+  .card{background:#1e293b;border:1px solid #334155;border-radius:16px;padding:40px;width:100%;max-width:420px}
+  .logo{text-align:center;margin-bottom:32px}
+  .logo-icon{font-size:48px;margin-bottom:8px}
+  .logo h1{font-size:24px;font-weight:700;color:#f1f5f9}
+  .logo p{color:#64748b;font-size:14px;margin-top:4px}
+  .field{margin-bottom:18px}
+  label{display:block;font-size:13px;color:#94a3b8;margin-bottom:6px;font-weight:500}
+  input{width:100%;background:#0f172a;border:1px solid #334155;border-radius:8px;
+        padding:12px 14px;color:#f1f5f9;font-size:15px;outline:none;transition:border .2s}
+  input:focus{border-color:#6366f1}
+  .btn{width:100%;background:#6366f1;color:#fff;border:none;border-radius:8px;
+       padding:13px;font-size:15px;font-weight:600;cursor:pointer;transition:background .2s;margin-top:8px}
+  .btn:hover{background:#4f46e5}
+  .err{background:#450a0a;border:1px solid #991b1b;color:#fca5a5;border-radius:8px;
+       padding:12px;font-size:13px;margin-top:14px;display:none}
+  .ok{background:#052e16;border:1px solid #166534;color:#86efac;border-radius:8px;
+      padding:12px;font-size:13px;margin-top:14px;display:none}
+  .link-row{text-align:center;margin-top:20px;font-size:13px;color:#64748b}
+  .link-row a{color:#6366f1;text-decoration:none}
+  .link-row a:hover{text-decoration:underline}
+  .hint{font-size:11px;color:#475569;margin-top:4px}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">
+    <div class="logo-icon">🔒</div>
+    <h1>Create Account</h1>
+    <p>FileGuard Integrity Monitor</p>
+  </div>
+
+  <div class="field">
+    <label>Display name</label>
+    <input id="name" type="text" placeholder="Alice Smith" autocomplete="name"/>
+  </div>
+  <div class="field">
+    <label>Email address</label>
+    <input id="email" type="email" placeholder="you@example.com" autocomplete="email"/>
+    <div class="hint">Alerts will be sent to this address.</div>
+  </div>
+  <div class="field">
+    <label>Password</label>
+    <input id="password" type="password" placeholder="Min. 8 characters" autocomplete="new-password"/>
+  </div>
+  <button class="btn" id="regBtn" onclick="doRegister()">Create account</button>
+  <div class="err" id="err"></div>
+  <div class="ok"  id="ok"></div>
+
+  <div class="link-row" style="margin-top:24px">
+    Already have an account? <a href="/login">Sign in</a>
+  </div>
+</div>
+
+<script>
+async function doRegister(){
+  const name     = document.getElementById('name').value.trim();
+  const email    = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+  const btn      = document.getElementById('regBtn');
+  const err      = document.getElementById('err');
+  const ok       = document.getElementById('ok');
+  err.style.display='none'; ok.style.display='none';
+  btn.textContent='Creating…'; btn.disabled=true;
+  try{
+    const r = await fetch('/api/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},
+                body:JSON.stringify({name,email,password})});
+    const d = await r.json();
+    if(d.ok){
+      ok.textContent='Account created! Redirecting to login…';
+      ok.style.display='block';
+      setTimeout(()=>window.location='/login',2000);
+    } else {
+      err.textContent=d.error||'Registration failed';
+      err.style.display='block';
+    }
+  }catch(e){ err.textContent='Network error'; err.style.display='block'; }
+  btn.textContent='Create account'; btn.disabled=false;
+}
+document.addEventListener('keydown',e=>{ if(e.key==='Enter') doRegister(); });
+</script>
+</body>
+</html>
